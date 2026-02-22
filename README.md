@@ -50,8 +50,8 @@ curl -fsSL https://raw.githubusercontent.com/JohnDSdev/linuxlofi/main/install.sh
 
 Support notes:
 - Linux: best experience with `pw-play` or `aplay` (or `ffplay`).
-- macOS: use `ffplay` (install via FFmpeg).
-- Termux: use `ffplay` from the Termux `ffmpeg` package.
+- macOS: use `ffplay` or `mpv`.
+- Termux: recommended backend is `mpv` (`pkg install mpv`).
 
 ## Usage
 
@@ -131,3 +131,7 @@ touch /tmp/linuxlofi-next-track.flag
 
 This repo runs on Linux, macOS, and Termux with one of these audio backends: `pw-play`, `aplay`, `ffplay`.
 If `nvidia-smi` is missing, GPU/VRAM metrics gracefully fall back to zero while audio still runs.
+
+Termux audio notes:
+- If you hear no sound, install `mpv`: `pkg install mpv`
+- Force backend explicitly: `LINUXLOFI_AUDIO_BACKEND=mpv linuxlofi`

@@ -16,6 +16,7 @@ NEXT_TRACK_FILE = "/tmp/linuxlofi-next-track.flag"
 ROTATE_SECONDS = 300
 IS_LINUX = platform.system().lower() == "linux"
 IS_DARWIN = platform.system().lower() == "darwin"
+IS_TERMUX = bool(os.environ.get("TERMUX_VERSION")) or "com.termux" in os.environ.get("PREFIX", "")
 
 PRESETS = [
     {
@@ -131,16 +132,67 @@ PRESETS = [
 ]
 
 
-def choose_player():
-    candidates = [
-        ["pw-play", "--rate", str(SR), "--channels", "1", "--format", "s16", "-"],
-        ["aplay", "-q", "-f", "S16_LE", "-r", str(SR), "-c", "1"],
-        ["ffplay", "-v", "error", "-nostats", "-nodisp", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", "-"],
+def get_player_candidates():
+    forced = os.environ.get("LINUXLOFI_AUDIO_BACKEND", "").strip().lower()
+    base = [
+        ("pw-play", ["pw-play", "--rate", str(SR), "--channels", "1", "--format", "s16", "-"]),
+        ("aplay", ["aplay", "-q", "-f", "S16_LE", "-r", str(SR), "-c", "1"]),
+        (
+            "mpv",
+            [
+                "mpv",
+                "--no-video",
+                "--really-quiet",
+                "--audio-display=no",
+                "--demuxer=rawaudio",
+                "--demuxer-rawaudio-format=s16le",
+                f"--demuxer-rawaudio-rate={SR}",
+                "--demuxer-rawaudio-channels=1",
+                "-",
+            ],
+        ),
+        ("ffplay", ["ffplay", "-v", "error", "-nostats", "-nodisp", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", "-"]),
     ]
-    for cmd in candidates:
-        if shutil.which(cmd[0]):
-            return cmd
-    raise RuntimeError("No audio playback command found (need pw-play, aplay, or ffplay)")
+
+    # Termux tends to work best with mpv; prefer it there.
+    if IS_TERMUX:
+        preferred = ["mpv", "ffplay", "pw-play", "aplay"]
+    else:
+        preferred = ["pw-play", "aplay", "mpv", "ffplay"]
+
+    ordered = []
+    for name in preferred:
+        for n, cmd in base:
+            if n == name:
+                ordered.append((n, cmd))
+                break
+
+    if forced:
+        ordered = [(n, cmd) for n, cmd in ordered if n == forced]
+    return ordered
+
+
+def start_player():
+    for name, cmd in get_player_candidates():
+        if not shutil.which(cmd[0]):
+            continue
+        try:
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if proc.stdin is None:
+                continue
+            proc.stdin.write(b"\x00" * 4096)
+            proc.stdin.flush()
+            return proc, name
+        except Exception:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            continue
+    forced = os.environ.get("LINUXLOFI_AUDIO_BACKEND", "").strip().lower()
+    if forced:
+        raise RuntimeError(f"Forced backend '{forced}' is unavailable or failed to start")
+    raise RuntimeError("No working audio backend found (tried pw-play, aplay, mpv, ffplay)")
 
 
 def read_cpu_pair():
@@ -277,7 +329,7 @@ def consume_next_track_flag():
 
 
 def main():
-    player = subprocess.Popen(choose_player(), stdin=subprocess.PIPE)
+    player, backend_name = start_player()
     if player.stdin is None:
         return
 
@@ -467,6 +519,7 @@ def main():
                 "vram": vram_pct,
                 "preset": preset["name"],
                 "preset_index": current_idx,
+                "audio_backend": backend_name,
                 "next_in": max(0.0, ROTATE_SECONDS - (now - last_change)),
                 "levels": vis_levels,
                 "components": {

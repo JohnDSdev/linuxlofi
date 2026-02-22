@@ -31,20 +31,17 @@ need_cmd python3
 need_cmd tar
 need_cmd curl
 
-if ! command -v pw-play >/dev/null 2>&1 && ! command -v aplay >/dev/null 2>&1; then
-  if command -v ffplay >/dev/null 2>&1; then
-    :
-  else
-    echo "[linuxlofi] need one audio backend: pw-play, aplay, or ffplay." >&2
-    echo "[linuxlofi] tip: install ffmpeg to get ffplay." >&2
-    exit 1
-  fi
-fi
-
 if ! command -v pw-play >/dev/null 2>&1 \
   && ! command -v aplay >/dev/null 2>&1 \
-  && ! command -v ffplay >/dev/null 2>&1; then
+  && ! command -v ffplay >/dev/null 2>&1 \
+  && ! command -v mpv >/dev/null 2>&1; then
   echo "[linuxlofi] no supported audio backend found." >&2
+  echo "[linuxlofi] install one of: pw-play, aplay, ffplay, mpv" >&2
+  if [ -n "${TERMUX_VERSION:-}" ] || [ -n "${PREFIX:-}" ] && [ "${PREFIX#*com.termux}" != "$PREFIX" ]; then
+    echo "[linuxlofi] Termux tip: pkg install mpv" >&2
+  else
+    echo "[linuxlofi] Linux/macOS tip: install ffmpeg (ffplay) or mpv" >&2
+  fi
   exit 1
 fi
 
