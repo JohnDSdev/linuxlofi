@@ -10,12 +10,19 @@
 
 ## Demo
 
-GitHub-friendly inline preview (click to play):
+Inline GIF preview:
 
-[![Watch linuxlofi demo](demo/watch-demo.svg)](demo/screenrec-20260222-171010.mp4)
+![linuxlofi demo](demo/linuxlofi-demo.gif)
 
-Direct file link:
+Watch full video:
 - [`demo/screenrec-20260222-171010.mp4`](demo/screenrec-20260222-171010.mp4)
+
+Listen to demo audio:
+
+<audio controls src="demo/linuxlofi-demo-audio.mp3"></audio>
+
+Audio file link:
+- [`demo/linuxlofi-demo-audio.mp3`](demo/linuxlofi-demo-audio.mp3)
 
 ## One-line installer
 
@@ -122,23 +129,3 @@ touch /tmp/linuxlofi-next-track.flag
 
 This repo runs on Linux, macOS, and Termux with one of these audio backends: `pw-play`, `aplay`, `ffplay`.
 If `nvidia-smi` is missing, GPU/VRAM metrics gracefully fall back to zero while audio still runs.
-
-## Installing FFmpeg (`ffplay`)
-
-Ubuntu/Debian:
-
-```bash
-sudo apt update && sudo apt install -y ffmpeg
-```
-
-macOS (Homebrew):
-
-```bash
-brew install ffmpeg
-```
-
-Termux:
-
-```bash
-pkg update && pkg install -y ffmpeg
-```
