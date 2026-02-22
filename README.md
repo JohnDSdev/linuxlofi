@@ -32,6 +32,8 @@ Audio file link:
 curl -fsSL https://raw.githubusercontent.com/JohnDSdev/linuxlofi/main/install.sh | bash
 ```
 
+The installer auto-detects OS/package manager and installs only missing runtime dependencies.
+
 ## Requirements
 
 - Linux

@@ -26,15 +26,130 @@ need_cmd() {
   }
 }
 
+has_audio_backend() {
+  command -v pw-play >/dev/null 2>&1 \
+    || command -v aplay >/dev/null 2>&1 \
+    || command -v ffplay >/dev/null 2>&1 \
+    || command -v mpv >/dev/null 2>&1
+}
+
+run_pkg_cmd() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+    return
+  fi
+  echo "[linuxlofi] need elevated privileges to install packages: $*" >&2
+  exit 1
+}
+
+install_missing_deps() {
+  local need_python=0
+  local need_tar=0
+  local need_curl=0
+  local need_audio=0
+
+  if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+    need_python=1
+  fi
+  command -v tar >/dev/null 2>&1 || need_tar=1
+  command -v curl >/dev/null 2>&1 || need_curl=1
+  has_audio_backend || need_audio=1
+
+  if [ "$need_python" -eq 0 ] && [ "$need_tar" -eq 0 ] && [ "$need_curl" -eq 0 ] && [ "$need_audio" -eq 0 ]; then
+    return
+  fi
+
+  echo "[linuxlofi] installing missing runtime dependencies for this OS"
+
+  if [ -n "${TERMUX_VERSION:-}" ] || { [ -n "${PREFIX:-}" ] && [ "${PREFIX#*com.termux}" != "$PREFIX" ]; }; then
+    local pkgs=()
+    [ "$need_python" -eq 1 ] && pkgs+=("python")
+    [ "$need_tar" -eq 1 ] && pkgs+=("tar")
+    [ "$need_curl" -eq 1 ] && pkgs+=("curl")
+    [ "$need_audio" -eq 1 ] && pkgs+=("mpv")
+    if [ "${#pkgs[@]}" -gt 0 ]; then
+      if ! command -v pkg >/dev/null 2>&1; then
+        echo "[linuxlofi] Termux detected but 'pkg' command not found." >&2
+        exit 1
+      fi
+      pkg update -y
+      pkg install -y "${pkgs[@]}"
+    fi
+    return
+  fi
+
+  if command -v apt-get >/dev/null 2>&1; then
+    local pkgs=()
+    [ "$need_python" -eq 1 ] && pkgs+=("python3")
+    [ "$need_tar" -eq 1 ] && pkgs+=("tar")
+    [ "$need_curl" -eq 1 ] && pkgs+=("curl")
+    [ "$need_audio" -eq 1 ] && pkgs+=("ffmpeg")
+    if [ "${#pkgs[@]}" -gt 0 ]; then
+      run_pkg_cmd apt-get update
+      run_pkg_cmd apt-get install -y "${pkgs[@]}"
+    fi
+    return
+  fi
+
+  if command -v dnf >/dev/null 2>&1; then
+    local pkgs=()
+    [ "$need_python" -eq 1 ] && pkgs+=("python3")
+    [ "$need_tar" -eq 1 ] && pkgs+=("tar")
+    [ "$need_curl" -eq 1 ] && pkgs+=("curl")
+    [ "$need_audio" -eq 1 ] && pkgs+=("ffmpeg")
+    [ "${#pkgs[@]}" -gt 0 ] && run_pkg_cmd dnf install -y "${pkgs[@]}"
+    return
+  fi
+
+  if command -v pacman >/dev/null 2>&1; then
+    local pkgs=()
+    [ "$need_python" -eq 1 ] && pkgs+=("python")
+    [ "$need_tar" -eq 1 ] && pkgs+=("tar")
+    [ "$need_curl" -eq 1 ] && pkgs+=("curl")
+    [ "$need_audio" -eq 1 ] && pkgs+=("ffmpeg")
+    [ "${#pkgs[@]}" -gt 0 ] && run_pkg_cmd pacman -Sy --noconfirm "${pkgs[@]}"
+    return
+  fi
+
+  if command -v zypper >/dev/null 2>&1; then
+    local pkgs=()
+    [ "$need_python" -eq 1 ] && pkgs+=("python3")
+    [ "$need_tar" -eq 1 ] && pkgs+=("tar")
+    [ "$need_curl" -eq 1 ] && pkgs+=("curl")
+    [ "$need_audio" -eq 1 ] && pkgs+=("ffmpeg")
+    [ "${#pkgs[@]}" -gt 0 ] && run_pkg_cmd zypper --non-interactive install "${pkgs[@]}"
+    return
+  fi
+
+  if command -v brew >/dev/null 2>&1; then
+    local pkgs=()
+    [ "$need_python" -eq 1 ] && pkgs+=("python")
+    [ "$need_tar" -eq 1 ] && pkgs+=("gnu-tar")
+    [ "$need_curl" -eq 1 ] && pkgs+=("curl")
+    [ "$need_audio" -eq 1 ] && pkgs+=("ffmpeg")
+    [ "${#pkgs[@]}" -gt 0 ] && brew install "${pkgs[@]}"
+    return
+  fi
+
+  echo "[linuxlofi] couldn't auto-install dependencies (unsupported package manager)." >&2
+  echo "[linuxlofi] please install: python3, tar, curl, and one of pw-play/aplay/ffplay/mpv" >&2
+  exit 1
+}
+
 need_cmd bash
-need_cmd python3
+install_missing_deps
 need_cmd tar
 need_cmd curl
+if ! command -v python3 >/dev/null 2>&1 && ! command -v python >/dev/null 2>&1; then
+  echo "[linuxlofi] python runtime missing after auto-install." >&2
+  exit 1
+fi
 
-if ! command -v pw-play >/dev/null 2>&1 \
-  && ! command -v aplay >/dev/null 2>&1 \
-  && ! command -v ffplay >/dev/null 2>&1 \
-  && ! command -v mpv >/dev/null 2>&1; then
+if ! has_audio_backend; then
   echo "[linuxlofi] no supported audio backend found." >&2
   echo "[linuxlofi] install one of: pw-play, aplay, ffplay, mpv" >&2
   if [ -n "${TERMUX_VERSION:-}" ] || [ -n "${PREFIX:-}" ] && [ "${PREFIX#*com.termux}" != "$PREFIX" ]; then
