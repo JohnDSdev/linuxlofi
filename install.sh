@@ -4,7 +4,12 @@ set -euo pipefail
 REPO_URL="${LINUXLOFI_REPO_URL:-https://github.com/JohnDSdev/linuxlofi}"
 BRANCH="${LINUXLOFI_BRANCH:-main}"
 DEFAULT_PREFIX="$HOME/.local"
-if [ -n "${TERMUX_VERSION:-}" ] && [ -n "${PREFIX:-}" ]; then
+if [ -n "${PREFIX:-}" ] && [ -d "${PREFIX:-}" ]; then
+  case "$PREFIX" in
+    */com.termux/files/usr) DEFAULT_PREFIX="$PREFIX" ;;
+  esac
+fi
+if [ -n "${TERMUX_VERSION:-}" ] && [ -n "${PREFIX:-}" ] && [ -d "${PREFIX:-}" ]; then
   DEFAULT_PREFIX="$PREFIX"
 fi
 PREFIX="${LINUXLOFI_PREFIX:-$DEFAULT_PREFIX}"
@@ -63,7 +68,23 @@ cp -r "$SRC_DIR/demo" "$APP_DIR/demo"
 cat > "$BIN_DIR/linuxlofi" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-exec python3 "$APP_DIR/src/linuxlofi.py" "\$@"
+APP_DIR="\${LINUXLOFI_HOME:-$APP_DIR}"
+SELF_DIR="\$(CDPATH= cd -- "\$(dirname -- "\$0")" && pwd)"
+ALT_DIR="\$(CDPATH= cd -- "\$SELF_DIR/../share/linuxlofi" 2>/dev/null && pwd || true)"
+if [ ! -f "\$APP_DIR/src/linuxlofi.py" ] && [ -n "\$ALT_DIR" ] && [ -f "\$ALT_DIR/src/linuxlofi.py" ]; then
+  APP_DIR="\$ALT_DIR"
+fi
+if [ ! -f "\$APP_DIR/src/linuxlofi.py" ]; then
+  echo "[linuxlofi] missing app files at: \$APP_DIR/src/linuxlofi.py" >&2
+  echo "[linuxlofi] reinstall with: curl -fsSL https://raw.githubusercontent.com/JohnDSdev/linuxlofi/main/install.sh | bash" >&2
+  exit 1
+fi
+PYTHON_BIN="\$(command -v python3 || command -v python || true)"
+if [ -z "\$PYTHON_BIN" ]; then
+  echo "[linuxlofi] python3/python not found" >&2
+  exit 1
+fi
+exec "\$PYTHON_BIN" "\$APP_DIR/src/linuxlofi.py" "\$@"
 EOF
 
 cat > "$BIN_DIR/linuxlofi-music" <<EOF
@@ -74,7 +95,18 @@ if [ ! -w "\$RUNTIME_DIR" ]; then
   RUNTIME_DIR="/tmp"
 fi
 PIDFILE="\$RUNTIME_DIR/fractal-music.pid"
-SCRIPT="$APP_DIR/src/fractal_music.py"
+APP_DIR="\${LINUXLOFI_HOME:-$APP_DIR}"
+SELF_DIR="\$(CDPATH= cd -- "\$(dirname -- "\$0")" && pwd)"
+ALT_DIR="\$(CDPATH= cd -- "\$SELF_DIR/../share/linuxlofi" 2>/dev/null && pwd || true)"
+if [ ! -f "\$APP_DIR/src/fractal_music.py" ] && [ -n "\$ALT_DIR" ] && [ -f "\$ALT_DIR/src/fractal_music.py" ]; then
+  APP_DIR="\$ALT_DIR"
+fi
+SCRIPT="\$APP_DIR/src/fractal_music.py"
+PYTHON_BIN="\$(command -v python3 || command -v python || true)"
+if [ -z "\$PYTHON_BIN" ]; then
+  echo "[linuxlofi] python3/python not found" >&2
+  exit 1
+fi
 
 if [ -f "\$PIDFILE" ]; then
   PID="\$(cat "\$PIDFILE" 2>/dev/null || true)"
@@ -86,7 +118,7 @@ if [ -f "\$PIDFILE" ]; then
   fi
 fi
 
-nohup python3 "\$SCRIPT" >/tmp/fractal-music.log 2>&1 &
+nohup "\$PYTHON_BIN" "\$SCRIPT" >/tmp/fractal-music.log 2>&1 &
 echo "\$!" > "\$PIDFILE"
 command -v notify-send >/dev/null 2>&1 && notify-send "linuxlofi" "music started"
 EOF
@@ -95,8 +127,19 @@ cat > "$BIN_DIR/linuxlofi-webui" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 PORT="\${1:-4173}"
-cd "$APP_DIR/webui"
-exec python3 -m http.server "\$PORT" --bind 127.0.0.1
+APP_DIR="\${LINUXLOFI_HOME:-$APP_DIR}"
+SELF_DIR="\$(CDPATH= cd -- "\$(dirname -- "\$0")" && pwd)"
+ALT_DIR="\$(CDPATH= cd -- "\$SELF_DIR/../share/linuxlofi" 2>/dev/null && pwd || true)"
+if [ ! -d "\$APP_DIR/webui" ] && [ -n "\$ALT_DIR" ] && [ -d "\$ALT_DIR/webui" ]; then
+  APP_DIR="\$ALT_DIR"
+fi
+PYTHON_BIN="\$(command -v python3 || command -v python || true)"
+if [ -z "\$PYTHON_BIN" ]; then
+  echo "[linuxlofi] python3/python not found" >&2
+  exit 1
+fi
+cd "\$APP_DIR/webui"
+exec "\$PYTHON_BIN" -m http.server "\$PORT" --bind 127.0.0.1
 EOF
 
 chmod +x "$BIN_DIR/linuxlofi" "$BIN_DIR/linuxlofi-music" "$BIN_DIR/linuxlofi-webui"
@@ -117,6 +160,7 @@ if ! echo "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
 fi
 
 echo "[linuxlofi] install complete"
+echo "[linuxlofi] app dir: $APP_DIR"
 echo "[linuxlofi] run: linuxlofi"
 echo "[linuxlofi] toggle music daemon: linuxlofi-music"
 echo "[linuxlofi] serve web UI: linuxlofi-webui 4173"

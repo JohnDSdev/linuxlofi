@@ -19,7 +19,9 @@ Watch full video:
 
 Listen to demo audio:
 
-<audio controls src="demo/linuxlofi-demo-audio.mp3"></audio>
+<audio controls preload="metadata">
+  <source src="https://raw.githubusercontent.com/JohnDSdev/linuxlofi/main/demo/linuxlofi-demo-audio.mp3" type="audio/mpeg">
+</audio>
 
 Audio file link:
 - [`demo/linuxlofi-demo-audio.mp3`](demo/linuxlofi-demo-audio.mp3)
