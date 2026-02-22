@@ -10,7 +10,11 @@
 
 ## Demo
 
-Latest capture:
+Latest capture (embedded):
+
+<video src="demo/screenrec-20260222-171010.mp4" controls width="960"></video>
+
+Direct file link:
 - [`demo/screenrec-20260222-171010.mp4`](demo/screenrec-20260222-171010.mp4)
 
 ## One-line installer
@@ -26,6 +30,15 @@ curl -fsSL https://raw.githubusercontent.com/JohnDSdev/linuxlofi/main/install.sh
 - `ps` (procps)
 - audio backend: `pw-play` (PipeWire) or `aplay` (ALSA)
 - optional GPU metrics: `nvidia-smi` (if NVIDIA is present)
+
+## OS support
+
+- Linux (native): supported.
+- Windows (native): not supported.
+- macOS (native): not supported.
+- BSDs (native): not supported.
+
+`linuxlofi` currently depends on Linux-specific interfaces (`/proc`, PipeWire/ALSA defaults, and Linux-oriented process metrics), so non-Linux native support is intentionally not claimed.
 
 ## Usage
 
