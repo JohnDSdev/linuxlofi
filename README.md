@@ -10,9 +10,9 @@
 
 ## Demo
 
-Latest capture (embedded):
+GitHub-friendly inline preview (click to play):
 
-<video src="demo/screenrec-20260222-171010.mp4" controls width="960"></video>
+[![Watch linuxlofi demo](demo/watch-demo.svg)](demo/screenrec-20260222-171010.mp4)
 
 Direct file link:
 - [`demo/screenrec-20260222-171010.mp4`](demo/screenrec-20260222-171010.mp4)
