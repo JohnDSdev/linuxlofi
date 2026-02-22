@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+if [ ! -w "$RUNTIME_DIR" ]; then
+  RUNTIME_DIR="/tmp"
+fi
+PIDFILE="$RUNTIME_DIR/fractal-music.pid"
+APP_HOME="${LINUXLOFI_HOME:-$HOME/.local/share/linuxlofi}"
+SCRIPT="$APP_HOME/src/fractal_music.py"
+
+if [ -f "$PIDFILE" ]; then
+  PID="$(cat "$PIDFILE" 2>/dev/null || true)"
+  if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+    kill "$PID" 2>/dev/null || true
+    rm -f "$PIDFILE"
+    command -v notify-send >/dev/null 2>&1 && notify-send "linuxlofi" "music stopped"
+    exit 0
+  fi
+fi
+
+nohup python3 "$SCRIPT" >/tmp/fractal-music.log 2>&1 &
+echo "$!" > "$PIDFILE"
+command -v notify-send >/dev/null 2>&1 && notify-send "linuxlofi" "music started"

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+APP_HOME="${LINUXLOFI_HOME:-$HOME/.local/share/linuxlofi}"
+PORT="${1:-4173}"
+cd "$APP_HOME/webui"
+exec python3 -m http.server "$PORT" --bind 127.0.0.1

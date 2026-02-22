@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procedural Lo-Fi Designer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="panel controls">
+      <h1>Procedural Lo-Fi Designer</h1>
+      <p class="subhead">Seeded note generation with synth instruments only.</p>
+
+      <div class="grid two-col">
+        <label>Preset
+          <select id="presetSelect"></select>
+        </label>
+
+        <label>&nbsp;
+          <button id="loadPreset" type="button">Load Preset</button>
+        </label>
+
+        <label>Tempo (BPM)
+          <input id="tempo" type="range" min="54" max="128" value="76" />
+          <span id="tempoValue">76</span>
+        </label>
+
+        <label>Swing (%)
+          <input id="swing" type="range" min="0" max="35" value="14" />
+          <span id="swingValue">14</span>
+        </label>
+
+        <label>Key
+          <select id="key">
+            <option>C</option><option>C#</option><option>D</option><option>D#</option>
+            <option>E</option><option>F</option><option>F#</option><option>G</option>
+            <option>G#</option><option>A</option><option>A#</option><option>B</option>
+          </select>
+        </label>
+
+        <label>Scale
+          <select id="scale">
+            <option value="minor">Natural Minor</option>
+            <option value="dorian">Dorian</option>
+            <option value="minorPent">Minor Pentatonic</option>
+          </select>
+        </label>
+
+        <label>Bars
+          <input id="bars" type="number" min="2" max="8" value="4" />
+        </label>
+
+        <label>Density
+          <input id="density" type="range" min="20" max="95" value="64" />
+          <span id="densityValue">64</span>
+        </label>
+
+        <label>Seed
+          <input id="seed" type="text" value="night-window-01" />
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>Instruments</legend>
+        <div class="grid three-col checks">
+          <label><input id="insKeys" type="checkbox" checked /> Keys</label>
+          <label><input id="insBass" type="checkbox" checked /> Bass</label>
+          <label><input id="insPad" type="checkbox" checked /> Pad</label>
+          <label><input id="insKick" type="checkbox" checked /> Kick</label>
+          <label><input id="insSnare" type="checkbox" checked /> Snare</label>
+          <label><input id="insHat" type="checkbox" checked /> Hat</label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Performance Sync</legend>
+        <div class="grid two-col checks">
+          <label><input id="adaptiveBpm" type="checkbox" /> Adaptive BPM from CPU/RAM/GPU/VRAM</label>
+          <span id="perfReadout">CPU -- | RAM -- | GPU -- | VRAM -- | Live BPM --</span>
+        </div>
+      </fieldset>
+
+      <div class="button-row">
+        <button id="initAudio">Enable Audio</button>
+        <button id="generate">Generate Pattern</button>
+        <button id="play">Play</button>
+        <button id="stop" class="ghost">Stop</button>
+      </div>
+
+      <p id="status" class="status">Audio is not initialized.</p>
+    </section>
+
+    <section class="panel output">
+      <h2>Pattern View</h2>
+      <pre id="patternView"></pre>
+
+      <h3>Method</h3>
+      <ul>
+        <li>Seeded randomness for repeatable loops.</li>
+        <li>Scale-constrained chord + melody generation.</li>
+        <li>Drums are synthesized instrument hits (no FX layers).</li>
+        <li>Lookahead scheduling for stable browser timing.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

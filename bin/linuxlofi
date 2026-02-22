@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+APP_HOME="${LINUXLOFI_HOME:-$HOME/.local/share/linuxlofi}"
+exec python3 "$APP_HOME/src/linuxlofi.py" "$@"
