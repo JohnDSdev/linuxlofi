@@ -2,8 +2,10 @@
 import json
 import math
 import os
+import platform
 import random
 import signal
+import shutil
 import struct
 import subprocess
 import time
@@ -12,6 +14,8 @@ SR = 44100
 STATE_FILE = "/tmp/linuxlofi-state.json"
 NEXT_TRACK_FILE = "/tmp/linuxlofi-next-track.flag"
 ROTATE_SECONDS = 300
+IS_LINUX = platform.system().lower() == "linux"
+IS_DARWIN = platform.system().lower() == "darwin"
 
 PRESETS = [
     {
@@ -131,14 +135,17 @@ def choose_player():
     candidates = [
         ["pw-play", "--rate", str(SR), "--channels", "1", "--format", "s16", "-"],
         ["aplay", "-q", "-f", "S16_LE", "-r", str(SR), "-c", "1"],
+        ["ffplay", "-v", "error", "-nostats", "-nodisp", "-f", "s16le", "-ar", str(SR), "-ac", "1", "-i", "-"],
     ]
     for cmd in candidates:
-        if subprocess.call(["sh", "-lc", f"command -v {cmd[0]} >/dev/null 2>&1"]) == 0:
+        if shutil.which(cmd[0]):
             return cmd
-    raise RuntimeError("No audio playback command found (need pw-play or aplay)")
+    raise RuntimeError("No audio playback command found (need pw-play, aplay, or ffplay)")
 
 
 def read_cpu_pair():
+    if not IS_LINUX or not os.path.exists("/proc/stat"):
+        return None
     with open("/proc/stat", "r", encoding="utf-8") as f:
         p = f.readline().split()[1:]
     vals = [int(x) for x in p]
@@ -147,15 +154,71 @@ def read_cpu_pair():
     return total, idle
 
 
+def read_cpu_pct_fallback():
+    cores = max(1, os.cpu_count() or 1)
+    try:
+        out = subprocess.check_output(["ps", "-A", "-o", "%cpu"], text=True, stderr=subprocess.DEVNULL)
+        vals = [float(x.strip()) for x in out.splitlines()[1:] if x.strip()]
+        return clamp(sum(vals) / cores, 0.0, 100.0)
+    except Exception:
+        pass
+    try:
+        load = os.getloadavg()[0]
+        return clamp((load / cores) * 100.0, 0.0, 100.0)
+    except Exception:
+        return 0.0
+
+
 def read_ram_pct():
+    if IS_LINUX and os.path.exists("/proc/meminfo"):
+        total = 1
+        avail = 0
+        with open("/proc/meminfo", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    total = int(line.split()[1])
+                elif line.startswith("MemAvailable:"):
+                    avail = int(line.split()[1])
+        return 100.0 * max(0, total - avail) / max(1, total)
+
+    if IS_DARWIN:
+        try:
+            total_b = int(
+                subprocess.check_output(["sysctl", "-n", "hw.memsize"], text=True, stderr=subprocess.DEVNULL).strip()
+            )
+            vm = subprocess.check_output(["vm_stat"], text=True, stderr=subprocess.DEVNULL)
+            page_size = 4096
+            for line in vm.splitlines():
+                if "page size of" in line:
+                    chunk = line.split("page size of", 1)[1]
+                    digits = "".join(ch for ch in chunk if ch.isdigit())
+                    if digits:
+                        page_size = int(digits)
+                    break
+
+            pages = {}
+            for line in vm.splitlines():
+                if ":" not in line:
+                    continue
+                k, v = line.split(":", 1)
+                num = "".join(ch for ch in v if ch.isdigit())
+                if not num:
+                    continue
+                pages[k.strip()] = int(num)
+
+            free_like = (
+                pages.get("Pages free", 0)
+                + pages.get("Pages inactive", 0)
+                + pages.get("Pages speculative", 0)
+            )
+            avail_b = free_like * page_size
+            used_b = max(0, total_b - avail_b)
+            return 100.0 * used_b / max(1, total_b)
+        except Exception:
+            pass
+
     total = 1
     avail = 0
-    with open("/proc/meminfo", "r", encoding="utf-8") as f:
-        for line in f:
-            if line.startswith("MemTotal:"):
-                total = int(line.split()[1])
-            elif line.startswith("MemAvailable:"):
-                avail = int(line.split()[1])
     return 100.0 * max(0, total - avail) / max(1, total)
 
 
@@ -227,7 +290,7 @@ def main():
     signal.signal(signal.SIGINT, stop_handler)
     signal.signal(signal.SIGTERM, stop_handler)
 
-    cpu_t0, cpu_i0 = read_cpu_pair()
+    cpu_pair = read_cpu_pair()
     last_gpu = (0.0, 0.0)
     last_gpu_poll = 0.0
 
@@ -263,10 +326,19 @@ def main():
         hat_pat = preset["hat"]
         root_midi = int(preset["root_midi"])
 
-        cpu_t1, cpu_i1 = read_cpu_pair()
-        dt = max(1, cpu_t1 - cpu_t0)
-        cpu_pct = 100.0 * max(0, dt - (cpu_i1 - cpu_i0)) / dt
-        cpu_t0, cpu_i0 = cpu_t1, cpu_i1
+        if cpu_pair is not None:
+            cpu_t0, cpu_i0 = cpu_pair
+            next_pair = read_cpu_pair()
+            if next_pair is not None:
+                cpu_t1, cpu_i1 = next_pair
+                dt = max(1, cpu_t1 - cpu_t0)
+                cpu_pct = 100.0 * max(0, dt - (cpu_i1 - cpu_i0)) / dt
+                cpu_pair = next_pair
+            else:
+                cpu_pct = read_cpu_pct_fallback()
+                cpu_pair = None
+        else:
+            cpu_pct = read_cpu_pct_fallback()
 
         ram_pct = read_ram_pct()
 

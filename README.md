@@ -27,18 +27,22 @@ curl -fsSL https://raw.githubusercontent.com/JohnDSdev/linuxlofi/main/install.sh
 
 - Linux
 - `python3`
-- `ps` (procps)
-- audio backend: `pw-play` (PipeWire) or `aplay` (ALSA)
+- `ps` (available by default on Linux/macOS/Termux)
+- audio backend: `pw-play` (PipeWire), `aplay` (ALSA), or `ffplay` (FFmpeg)
 - optional GPU metrics: `nvidia-smi` (if NVIDIA is present)
 
 ## OS support
 
 - Linux (native): supported.
+- macOS (native): supported.
+- Termux on Android: supported.
 - Windows (native): not supported.
-- macOS (native): not supported.
 - BSDs (native): not supported.
 
-`linuxlofi` currently depends on Linux-specific interfaces (`/proc`, PipeWire/ALSA defaults, and Linux-oriented process metrics), so non-Linux native support is intentionally not claimed.
+Support notes:
+- Linux: best experience with `pw-play` or `aplay` (or `ffplay`).
+- macOS: use `ffplay` (install via FFmpeg).
+- Termux: use `ffplay` from the Termux `ffmpeg` package.
 
 ## Usage
 
@@ -116,5 +120,25 @@ touch /tmp/linuxlofi-next-track.flag
 
 ## Portability notes
 
-This repo is designed to run on most modern Linux setups without distro-specific tooling.
-If `pw-play` is unavailable, it falls back to `aplay`. If `nvidia-smi` is missing, GPU/VRAM metrics gracefully fall back to zero while audio still runs.
+This repo runs on Linux, macOS, and Termux with one of these audio backends: `pw-play`, `aplay`, `ffplay`.
+If `nvidia-smi` is missing, GPU/VRAM metrics gracefully fall back to zero while audio still runs.
+
+## Installing FFmpeg (`ffplay`)
+
+Ubuntu/Debian:
+
+```bash
+sudo apt update && sudo apt install -y ffmpeg
+```
+
+macOS (Homebrew):
+
+```bash
+brew install ffmpeg
+```
+
+Termux:
+
+```bash
+pkg update && pkg install -y ffmpeg
+```

@@ -3,7 +3,11 @@ set -euo pipefail
 
 REPO_URL="${LINUXLOFI_REPO_URL:-https://github.com/JohnDSdev/linuxlofi}"
 BRANCH="${LINUXLOFI_BRANCH:-main}"
-PREFIX="${LINUXLOFI_PREFIX:-$HOME/.local}"
+DEFAULT_PREFIX="$HOME/.local"
+if [ -n "${TERMUX_VERSION:-}" ] && [ -n "${PREFIX:-}" ]; then
+  DEFAULT_PREFIX="$PREFIX"
+fi
+PREFIX="${LINUXLOFI_PREFIX:-$DEFAULT_PREFIX}"
 BIN_DIR="$PREFIX/bin"
 APP_DIR="$PREFIX/share/linuxlofi"
 TMP_DIR="$(mktemp -d)"
@@ -23,7 +27,19 @@ need_cmd tar
 need_cmd curl
 
 if ! command -v pw-play >/dev/null 2>&1 && ! command -v aplay >/dev/null 2>&1; then
-  echo "[linuxlofi] need one audio backend: pw-play (PipeWire) or aplay (ALSA)." >&2
+  if command -v ffplay >/dev/null 2>&1; then
+    :
+  else
+    echo "[linuxlofi] need one audio backend: pw-play, aplay, or ffplay." >&2
+    echo "[linuxlofi] tip: install ffmpeg to get ffplay." >&2
+    exit 1
+  fi
+fi
+
+if ! command -v pw-play >/dev/null 2>&1 \
+  && ! command -v aplay >/dev/null 2>&1 \
+  && ! command -v ffplay >/dev/null 2>&1; then
+  echo "[linuxlofi] no supported audio backend found." >&2
   exit 1
 fi
 

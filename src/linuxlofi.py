@@ -4,6 +4,7 @@ import curses
 import json
 import math
 import os
+import platform
 import random
 import signal
 import subprocess
@@ -16,6 +17,7 @@ STATE_FILE = "/tmp/linuxlofi-state.json"
 NEXT_TRACK_FILE = "/tmp/linuxlofi-next-track.flag"
 APP_HOME = os.environ.get("LINUXLOFI_HOME", os.path.dirname(os.path.abspath(__file__)))
 MUSIC_SCRIPT = os.path.join(APP_HOME, "fractal_music.py")
+IS_LINUX = platform.system().lower() == "linux"
 
 PALETTES = {
     "auto": None,
@@ -50,6 +52,13 @@ class CPUReader:
         self.prev_idle = None
 
     def total_usage(self) -> float:
+        if not IS_LINUX or not os.path.exists("/proc/stat"):
+            try:
+                load = os.getloadavg()[0]
+                cores = max(1, os.cpu_count() or 1)
+                return max(0.0, min(100.0, (load / cores) * 100.0))
+            except Exception:
+                return 0.0
         with open("/proc/stat", "r", encoding="utf-8") as f:
             parts = f.readline().split()[1:]
         vals = [int(x) for x in parts]
@@ -78,16 +87,19 @@ class ProcessReader:
         if now - self.last_fetch < PROC_REFRESH_SECONDS and self.cache:
             return self.cache[:limit]
 
-        cmd = [
-            "ps",
-            "-eo",
-            "pid,user,pcpu,pmem,comm",
-            "--sort=-pcpu",
-            "--no-headers",
+        commands = [
+            ["ps", "-eo", "pid,user,pcpu,pmem,comm", "--sort=-pcpu", "--no-headers"],
+            ["ps", "-axo", "pid,user,%cpu,%mem,comm", "-r"],
         ]
-        try:
-            raw = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
-        except Exception:
+        raw = ""
+        for cmd in commands:
+            try:
+                raw = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL)
+                if raw.strip():
+                    break
+            except Exception:
+                raw = ""
+        if not raw:
             return self.cache[:limit]
 
         rows = []
