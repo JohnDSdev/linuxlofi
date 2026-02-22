@@ -60,9 +60,56 @@ cp -r "$SRC_DIR/src" "$APP_DIR/src"
 cp -r "$SRC_DIR/webui" "$APP_DIR/webui"
 cp -r "$SRC_DIR/demo" "$APP_DIR/demo"
 
-install -m 0755 "$SRC_DIR/bin/linuxlofi" "$BIN_DIR/linuxlofi"
-install -m 0755 "$SRC_DIR/bin/linuxlofi-music" "$BIN_DIR/linuxlofi-music"
-install -m 0755 "$SRC_DIR/bin/linuxlofi-webui" "$BIN_DIR/linuxlofi-webui"
+cat > "$BIN_DIR/linuxlofi" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+exec python3 "$APP_DIR/src/linuxlofi.py" "\$@"
+EOF
+
+cat > "$BIN_DIR/linuxlofi-music" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+RUNTIME_DIR="\${XDG_RUNTIME_DIR:-/tmp}"
+if [ ! -w "\$RUNTIME_DIR" ]; then
+  RUNTIME_DIR="/tmp"
+fi
+PIDFILE="\$RUNTIME_DIR/fractal-music.pid"
+SCRIPT="$APP_DIR/src/fractal_music.py"
+
+if [ -f "\$PIDFILE" ]; then
+  PID="\$(cat "\$PIDFILE" 2>/dev/null || true)"
+  if [ -n "\$PID" ] && kill -0 "\$PID" 2>/dev/null; then
+    kill "\$PID" 2>/dev/null || true
+    rm -f "\$PIDFILE"
+    command -v notify-send >/dev/null 2>&1 && notify-send "linuxlofi" "music stopped"
+    exit 0
+  fi
+fi
+
+nohup python3 "\$SCRIPT" >/tmp/fractal-music.log 2>&1 &
+echo "\$!" > "\$PIDFILE"
+command -v notify-send >/dev/null 2>&1 && notify-send "linuxlofi" "music started"
+EOF
+
+cat > "$BIN_DIR/linuxlofi-webui" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+PORT="\${1:-4173}"
+cd "$APP_DIR/webui"
+exec python3 -m http.server "\$PORT" --bind 127.0.0.1
+EOF
+
+chmod +x "$BIN_DIR/linuxlofi" "$BIN_DIR/linuxlofi-music" "$BIN_DIR/linuxlofi-webui"
+
+# Fallback: if BIN_DIR is not on PATH but ~/bin is, mirror commands there.
+if ! echo "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
+  if echo "$PATH" | tr ':' '\n' | grep -qx "$HOME/bin"; then
+    mkdir -p "$HOME/bin"
+    ln -sf "$BIN_DIR/linuxlofi" "$HOME/bin/linuxlofi"
+    ln -sf "$BIN_DIR/linuxlofi-music" "$HOME/bin/linuxlofi-music"
+    ln -sf "$BIN_DIR/linuxlofi-webui" "$HOME/bin/linuxlofi-webui"
+  fi
+fi
 
 if ! echo "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
   echo "[linuxlofi] added binaries to $BIN_DIR"
